@@ -2,20 +2,37 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"net/url"
 
+	"time"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 )
 
-type URLHandler struct {
-	rdb *redis.Client
+// type URLHandler struct {
+// 	rdb *redis.Client
+// }
+
+// func NewURLHandler(rdb *redis.Client) *URLHandler {
+// 	return &URLHandler{rdb: rdb}
+// }
+
+type RedisClient interface {
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
+	Get(ctx context.Context, key string) *redis.StringCmd
+	Incr(ctx context.Context, key string) *redis.IntCmd
 }
 
-func NewURLHandler(rdb *redis.Client) *URLHandler {
+type URLHandler struct {
+	rdb RedisClient
+}
+
+func NewURLHandler(rdb RedisClient) *URLHandler {
 	return &URLHandler{rdb: rdb}
 }
 
@@ -42,12 +59,29 @@ func (h *URLHandler) GenerateShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "http://localhost:8080/r/%s", shortURL)
+	response := map[string]string{"short_url": "http://localhost:8080/r/" + shortURL}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *URLHandler) IncrementAccessCount(ctx context.Context, shortURL string) error {
+	countKey := "count:" + shortURL
+	if _, err := s.rdb.Incr(ctx, countKey).Result(); err != nil {
+		return fmt.Errorf("error incrementing access count: %w", err)
+	}
+	return nil
 }
 
 func (h *URLHandler) RedirectShortURL(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	shortURL := chi.URLParam(r, "shortURL")
+
+	// Increment the access count for this short URL
+	if err := h.IncrementAccessCount(ctx, shortURL); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	originalURL, err := h.rdb.Get(ctx, shortURL).Result()
 	if err == redis.Nil {
 		http.Error(w, "Short URL not found", http.StatusNotFound)
