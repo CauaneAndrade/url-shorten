@@ -4,16 +4,11 @@ This project is a lightweight URL shortener service, allowing users to convert l
 ## Features
 - Generate short URLs from long ones
 - Redirect short URLs to their original long URLs
-- In-memory URL mapping for quick access
 
-## Getting Started
+## Prerequisites
+- Go (version 1.22)
+- Docker and Docker Compose
 
 ## Usage
-To shorten a URL: http://localhost:8080/shorten?url=YOUR_LONG_URL
-To access a short URL: http://localhost:8080/r/YOUR_SHORT_URL
-
-
-## missing
-- Track the number of times the short link is accessed
-- unit test
-
+- To shorten a URL: http://localhost:8080/shorten?url=YOUR_LONG_URL
+- To access a short URL: http://localhost:8080/r/YOUR_SHORT_URL
